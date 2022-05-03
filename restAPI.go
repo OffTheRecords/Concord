@@ -1,11 +1,13 @@
 package main
 
 import (
+	"Concord/Authentication"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"reflect"
 )
 
 func startRestAPI() {
@@ -80,6 +82,14 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 	//TODO check all fields are set
+	ref := reflect.ValueOf(register)
+	EmptyFields := Authentication.EmptyFieldsCheck(ref)
+
+	if EmptyFields == false {
+		fmt.Printf("Missing field in input.")
+	} else {
+		fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.UserName)
+	}
 
 	//TODO create new record in database for user
 
@@ -97,6 +107,4 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//DEBUG
-	fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.UserName)
 }
