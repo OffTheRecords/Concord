@@ -21,6 +21,8 @@ func main() {
 	fmt.Printf("read argument %s as: %s\n", "logging", logLevel)
 
 	fmt.Printf("%s\n", Authentication.Login())
+
+	startRestAPI()
 }
 
 //Reads an argument and returns it if it matches the regex
