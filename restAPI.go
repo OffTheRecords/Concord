@@ -79,16 +79,17 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		response.Status = 400
 		response.Msg = "Failed to decode response"
-
-	}
-	//TODO check all fields are set
-	ref := reflect.ValueOf(register)
-	EmptyFields := Authentication.EmptyFieldsCheck(ref)
-
-	if EmptyFields == false {
-		fmt.Printf("Missing field in input.")
 	} else {
-		fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.UserName)
+		//check all fields are set
+		ref := reflect.ValueOf(register)
+		fieldsFilled := Authentication.EmptyFieldsCheck(ref)
+		if fieldsFilled == false {
+			response.Status = 400
+			response.Msg = "Missing fields in input"
+		} else {
+			response.Status = 200
+			response.Msg = "ok"
+		}
 	}
 
 	//TODO create new record in database for user
@@ -96,8 +97,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO return auth token for user
 
 	//Return success message
-	response.Status = 200
-	response.Msg = "ok"
+
 	marshal, err := json.Marshal(response)
 	if err != nil {
 		return
@@ -106,5 +106,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+
+	//DEBUG
+	fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.UserName)
 
 }
