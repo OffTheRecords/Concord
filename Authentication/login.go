@@ -1,5 +1,5 @@
 package Authentication
 
 func Login() string {
-	return "Failed"
+	return "Login Test"
 }
