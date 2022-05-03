@@ -24,7 +24,7 @@ type login struct {
 
 type register struct {
 	Email    string `json:"email"`
-	UserName string `json:"username"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -82,10 +82,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//check all fields are set
 		ref := reflect.ValueOf(register)
-		fieldsFilled := Authentication.EmptyFieldsCheck(ref)
-		if fieldsFilled == false {
+		ty := ref.Type()
+		fieldsErr := Authentication.FieldValidityCheck(ref, ty)
+		if fieldsErr != nil {
 			response.Status = 400
-			response.Msg = "Missing fields in input"
+			response.Msg = fieldsErr.Error()
 		} else {
 			response.Status = 200
 			response.Msg = "ok"
@@ -108,6 +109,6 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//DEBUG
-	fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.UserName)
+	fmt.Printf("Got register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.Username)
 
 }
