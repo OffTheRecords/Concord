@@ -42,7 +42,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	var login login
 	err := json.NewDecoder(r.Body).Decode(&login)
 	if err != nil {
-		response.Status = 400
+		response.Status = 4004
 		response.Msg = "Failed to decode response"
 
 	}
@@ -77,7 +77,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	var register register
 	err := json.NewDecoder(r.Body).Decode(&register)
 	if err != nil {
-		response.Status = 400
+		response.Status = 4005
 		response.Msg = "Failed to decode response"
 	} else {
 		//check all fields are set
@@ -85,8 +85,8 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 		ty := ref.Type()
 		fieldsErr := Authentication.FieldValidityCheck(ref, ty)
 		if fieldsErr != nil {
-			response.Status = 400
-			response.Msg = fieldsErr.Error()
+			response.Status = fieldsErr.ErrorCode()
+			response.Msg = fieldsErr.ErrorMsg()
 		} else {
 			response.Status = 200
 			response.Msg = "ok"
