@@ -1,56 +1,56 @@
 package main
 
 import (
-	"Concord/Authentication"
-	"errors"
+	"Concord/CustomErrors"
+	"context"
 	"fmt"
-	"os"
-	"regexp"
-	"strings"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"time"
 )
 
 func main() {
 
-	//Get runtime args
-	//Get log level
-	logLevel, err := readStringArg("logging", "debug|error|warning|info")
+	fmt.Printf("Program started at %s \n", time.Now().Format(time.RFC822))
+
+	//Read required program args
+	runTimeArgs := readRunTimeArgs()
+	if !runTimeArgs.valid {
+		fmt.Printf("Exiting, program args invalid")
+	}
+
+	//Connect to Mongo database
+	MongoURI := "mongodb://" + runTimeArgs.dbUserMongo + ":" + runTimeArgs.dbPassMongo + "@" + runTimeArgs.dbHostMongo + ":" + runTimeArgs.dbPortMongo + "/" + runTimeArgs.dbNameMongo + "?authSource=admin"
+	fmt.Printf(MongoURI + "\n")
+	mongoClient, err := mongo.NewClient(options.Client().ApplyURI(MongoURI))
 	if err != nil {
-		fmt.Print(err.Error())
-		return
+		CustomErrors.LogError(5002, "FATAL", true, err)
 	}
-	fmt.Printf("read argument %s as: %s\n", "logging", logLevel)
 
-	fmt.Printf("%s\n", Authentication.Login())
-
-	startRestAPI()
-}
-
-//Reads an argument and returns it if it matches the regex
-func readStringArg(argName string, argRegexStr string) (string, error) {
-	args := os.Args[1:] //Skip first arg of program name
-
-	for i := 0; i < len(args); i++ {
-		if strings.ToLower(args[i]) == "-"+strings.ToLower(argName) {
-			if i+1 < len(args) {
-				value := args[i+1]
-				if !strings.Contains(value, "-") {
-					argMatched, err := regexp.MatchString(argRegexStr, value)
-					if err != nil {
-						return "", err
-					}
-					if argMatched {
-						return value, nil
-					} else {
-						return "", errors.New("error reading arguments, argument " + args[i+1] + " did not match the regex pattern " + argRegexStr)
-					}
-
-				} else {
-					return "", errors.New("error reading arguments, unexpected '-' after argument " + args[i])
-				}
-			} else {
-				return "", errors.New("error reading arguments, expected value after argument " + args[i])
-			}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err = mongoClient.Connect(ctx)
+	if err != nil {
+		CustomErrors.LogError(5001, "FATAL", true, err)
+	}
+	defer func(mongoClient *mongo.Client, ctx context.Context) {
+		err := mongoClient.Disconnect(ctx)
+		if err != nil {
+			CustomErrors.LogError(5003, "FATAL", true, err)
 		}
+	}(mongoClient, ctx)
+
+	//Attempt to ping database
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = mongoClient.Ping(ctx, readpref.Primary())
+	if err != nil {
+		CustomErrors.LogError(5004, "FATAL", true, err)
 	}
-	return "", errors.New("error reading arguments, no arguments read")
+
+	//Mongo database pointer
+	dbClient := mongoClient.Database(runTimeArgs.dbNameMongo)
+
+	startRestAPI(dbClient)
 }

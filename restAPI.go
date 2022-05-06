@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
 	"reflect"
 )
 
-func startRestAPI() {
+func startRestAPI(dbClient *mongo.Database) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", loginHandler).Methods("POST")
 	router.HandleFunc("/auth/register", registerHandler).Methods("POST")
