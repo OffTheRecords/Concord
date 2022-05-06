@@ -11,10 +11,16 @@ import (
 	"reflect"
 )
 
+type WebHandlerVars struct {
+	dbClient *mongo.Database
+}
+
 func startRestAPI(dbClient *mongo.Database) {
+	handlerVars := &WebHandlerVars{dbClient: dbClient}
+
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/auth/login", loginHandler).Methods("POST")
-	router.HandleFunc("/auth/register", registerHandler).Methods("POST")
+	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST")
+	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
@@ -34,7 +40,7 @@ type response struct {
 	Msg    string `json:"msg"`
 }
 
-func loginHandler(w http.ResponseWriter, r *http.Request) {
+func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var response response
@@ -69,7 +75,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Got Login request with email: %s, passsword: %s\n", login.Email, login.Password)
 }
 
-func registerHandler(w http.ResponseWriter, r *http.Request) {
+func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var response response
