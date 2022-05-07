@@ -21,11 +21,13 @@ func startRestAPI(dbClient *mongo.Database) {
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST")
-	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST")
+	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST", "OPTIONS")
 
-	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
+	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:8080"})
+	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Access-Control-Allow-Headers", "Content-Type,access-control-allow-origin, access-control-allow-headers"})
+	allowedMethods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 
-	log.Fatal(http.ListenAndServe(":8080", handlers.CORS(allowedOrigins)(router)))
+	log.Fatal(http.ListenAndServe(":8081", handlers.CORS(allowedOrigins, allowedMethods, allowedHeaders)(router)))
 }
 
 type login struct {
@@ -81,7 +83,6 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 
 func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	var response response
 
 	//Decode user response
