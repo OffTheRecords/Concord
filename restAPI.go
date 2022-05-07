@@ -95,12 +95,18 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 			response.Status = fieldsErr.ErrorCode()
 			response.Msg = fieldsErr.ErrorMsg()
 		} else {
-			response.Status = 200
-			response.Msg = "ok"
+			//Fields okay
+			//create new record in database for user
+			gerr := Authentication.RegisterUser(register.Email, register.Username, register.Password, vars.dbClient)
+			if gerr != nil {
+				response.Status = gerr.ErrorCode()
+				response.Msg = gerr.ErrorMsg()
+			} else {
+				response.Status = 200
+				response.Msg = "ok"
+			}
 		}
 	}
-
-	//TODO create new record in database for user
 
 	//TODO return auth token for user
 
