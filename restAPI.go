@@ -4,6 +4,7 @@ import (
 	"Concord/Authentication"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
@@ -21,7 +22,10 @@ func startRestAPI(dbClient *mongo.Database) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST")
 	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":8080", router))
+
+	allowedOrigins := handlers.AllowedOrigins([]string{"*"})
+
+	log.Fatal(http.ListenAndServe(":8080", handlers.CORS(allowedOrigins)(router)))
 }
 
 type login struct {
