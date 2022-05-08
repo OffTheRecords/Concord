@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+//TODO Need to generate user ID's to differentiate users.
 type RegisterUserDB struct {
 	Email         string `json:"email"`
 	EmailVerified bool   `json:"email-verified"`

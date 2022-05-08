@@ -1,12 +1,14 @@
 package main
 
 import (
+	"Concord/Authentication"
 	"Concord/CustomErrors"
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"os"
 	"time"
 )
 
@@ -49,8 +51,15 @@ func main() {
 		CustomErrors.LogError(5004, "FATAL", true, err)
 	}
 
+	//Generate RSA key pairs if not already created
+	if _, err := os.Stat("private.pem"); err == nil {
+		fmt.Printf("Keys already exist.")
+	} else {
+		Authentication.GeneratePrivateKey()
+		fmt.Printf("RSA Key pairs generated.")
+	}
 	//Mongo database pointer
 	dbClient := mongoClient.Database(runTimeArgs.dbNameMongo)
-
 	startRestAPI(dbClient)
+
 }
