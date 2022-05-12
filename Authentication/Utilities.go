@@ -65,7 +65,7 @@ func FieldEmptyCheck(value reflect.Value) CustomErrors.GenericErrors {
 }
 
 func GenerateJWT(userDetails reflect.Value) (string, error, time.Time) {
-	priv, err := ioutil.ReadFile("./private.pem")
+	priv, err := ioutil.ReadFile("res/jwt_private.pem")
 	jwtKey, _ := jwt.ParseRSAPrivateKeyFromPEM(priv)
 
 	expiration := time.Now().Add(15 * time.Minute)
@@ -101,7 +101,7 @@ func GeneratePrivateKey() {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: privateKeyBytes,
 	}
-	privatePem, err := os.Create("private.pem")
+	privatePem, err := os.Create("res/jwt_private.pem")
 	if err != nil {
 		fmt.Printf("error when create private.pem: %s \n", err)
 		os.Exit(1)
@@ -122,7 +122,7 @@ func GeneratePrivateKey() {
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyBytes,
 	}
-	publicPem, err := os.Create("public.pem")
+	publicPem, err := os.Create("res/jwt_public.pem")
 	if err != nil {
 		fmt.Printf("error when create public.pem: %s \n", err)
 		os.Exit(1)

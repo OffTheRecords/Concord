@@ -52,8 +52,13 @@ func main() {
 	}
 
 	//Generate RSA key pairs if not already created
-	if _, err := os.Stat("private.pem"); err == nil {
-		fmt.Printf("Keys already exist.")
+	if _, err := os.Stat("res/jwt_private.pem"); err == nil {
+		if _, err := os.Stat("res/jwt_public.pem"); err == nil {
+			fmt.Printf("Keys already exist.")
+		} else {
+			Authentication.GeneratePrivateKey()
+			fmt.Printf("RSA Key pairs generated.")
+		}
 	} else {
 		Authentication.GeneratePrivateKey()
 		fmt.Printf("RSA Key pairs generated.")

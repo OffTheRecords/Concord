@@ -24,11 +24,16 @@ func startRestAPI(dbClient *mongo.Database) {
 	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST", "OPTIONS")
 
 	//TODO: ALLOW PASSING IN VARIABLE FOR ALLOWED ORIGIN
-	allowedOrigins := handlers.AllowedOrigins([]string{"http://localhost:8080"})
-	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Access-Control-Allow-Headers", "access-control-allow-origin"})
+	allowedOrigins := handlers.AllowedOrigins([]string{"https://localhost:8080", "https://127.0.0.1:8080"})
+	allowedHeaders := handlers.AllowedHeaders([]string{"Content-Type", "Access-Control-Allow-Headers", "access-control-allow-origin", "Authorization"})
 	allowedMethods := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 	allowedAuth := handlers.AllowCredentials()
-	log.Fatal(http.ListenAndServe(":8081", handlers.CORS(allowedOrigins, allowedMethods, allowedHeaders, allowedAuth)(router)))
+	ttl := handlers.MaxAge(60)
+	err := http.ListenAndServeTLS(":443", "res/server_fullchain.pem", "res/server_privatekey.pem", handlers.CORS(allowedOrigins, allowedMethods, allowedHeaders, allowedAuth, ttl)(router))
+	if err != nil {
+		fmt.Println(err.Error())
+		log.Fatal(err)
+	}
 }
 
 type login struct {
@@ -55,6 +60,7 @@ type response struct {
 }
 
 func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request) {
+
 	w.Header().Set("Content-Type", "application/json")
 
 	var response response
@@ -84,13 +90,13 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 					Name:     "token",
 					Value:    jwt,
 					Expires:  expTime,
+					MaxAge:   900,
+					HttpOnly: false,
 					Path:     "/",
 					Secure:   true,
-					SameSite: 4,
+					SameSite: http.SameSiteNoneMode,
 				}
 				http.SetCookie(w, cookie)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(200)
 			}
 		}
 	}
@@ -109,6 +115,7 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
+	w.WriteHeader(200)
 
 	//DEBUG
 	//fmt.Printf("Got Login request with email: %s, passsword: %s\n", login.Email, login.Password)
@@ -116,7 +123,7 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 
 func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	//w.Header().Set("Access-Control-Allow-Credentials", "true")
 	var response response
 
 	//Decode user response
@@ -160,6 +167,8 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 						Path:     "/",
 						Secure:   true,
 						SameSite: 4,
+						HttpOnly: false,
+						MaxAge:   900,
 					}
 					http.SetCookie(w, cookie)
 				}
