@@ -2,6 +2,8 @@ package main
 
 import (
 	"Concord/Authentication"
+	"Concord/CustomErrors"
+	"Concord/Structures"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/handlers"
@@ -47,23 +49,12 @@ type register struct {
 	Password string `json:"password"`
 }
 
-type user struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
-}
-
-type response struct {
-	Status int    `json:"status"`
-	Msg    string `json:"msg"`
-}
-
 func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
 
-	var response response
+	var response Structures.Response
+	response.Status = 200
+	response.Msg = "ok"
 
 	//Decode user response
 	var login login
@@ -80,18 +71,17 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 			response.Status = fieldsErr.ErrorCode()
 			response.Msg = fieldsErr.ErrorMsg()
 		} else {
-			jwt, err, expTime := Authentication.Login(login.Email, login.Password, vars.dbClient)
-			if err != nil {
-				fmt.Printf(jwt)
+			jwt, gerr, expTime := Authentication.Login(login.Email, login.Password, vars.dbClient)
+			if gerr != nil {
+				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
-				//fmt.Printf("jwt successful token: %s", jwt)
-				//TODO GOTTA ADD SSL TO ALLOW SECURE COOKIES TO BE SAVED
+				//Set jwt token cookie
 				cookie := &http.Cookie{
 					Name:     "token",
 					Value:    jwt,
 					Expires:  expTime,
-					MaxAge:   900,
-					HttpOnly: false,
+					MaxAge:   Authentication.JWT_TOKEN_TTL_MIN * 60,
+					HttpOnly: true,
 					Path:     "/",
 					Secure:   true,
 					SameSite: http.SameSiteNoneMode,
@@ -100,13 +90,10 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 			}
 		}
 	}
-	//TODO send to authentication server credentials for verification
 
-	//TODO return auth token
+	//TODO Return refresh token
 
-	//Return success message
-	response.Status = 200
-	response.Msg = "ok"
+	//Return status message
 	marshal, err := json.Marshal(response)
 	if err != nil {
 		return
@@ -115,16 +102,17 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
-	w.WriteHeader(200)
 
 	//DEBUG
-	//fmt.Printf("Got Login request with email: %s, passsword: %s\n", login.Email, login.Password)
+	fmt.Printf("Got Login request with email: %s, passsword: %s\n", login.Email, login.Password)
 }
 
 func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	//w.Header().Set("Access-Control-Allow-Credentials", "true")
-	var response response
+
+	var response Structures.Response
+	response.Status = 200
+	response.Msg = "ok"
 
 	//Decode user response
 	var register register
@@ -145,41 +133,37 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 			//create new record in database for user
 			gerr := Authentication.RegisterUser(register.Email, register.Username, register.Password, vars.dbClient)
 			if gerr != nil {
-				response.Status = gerr.ErrorCode()
-				response.Msg = gerr.ErrorMsg()
+				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
-				//GENERATE AUTH TOKEN upon successful registration
-				var userDetails user
-				userDetails.Email = register.Email
-				userDetails.Username = register.Username
-				userDetails.Password = register.Password
-				userDetails.Role = "Unverified"
-				refUser := reflect.ValueOf(userDetails)
-				jwt, err, expTime := Authentication.GenerateJWT(refUser)
-				if err != nil {
-					fmt.Print(err)
+				user, gerr := Authentication.GetUserFromDB(register.Email, vars.dbClient)
+				if gerr != nil {
+					CustomErrors.ErrorCodeHandler(gerr, &response)
 				} else {
-					fmt.Printf("jwt successful token: %s", jwt)
-					cookie := &http.Cookie{
-						Name:     "token",
-						Value:    jwt,
-						Expires:  expTime,
-						Path:     "/",
-						Secure:   true,
-						SameSite: 4,
-						HttpOnly: false,
-						MaxAge:   900,
+					//GENERATE AUTH TOKEN upon successful registration
+					jwt, err, expTime := Authentication.GenerateJWT(user)
+					if err != nil {
+						CustomErrors.LogError(5017, CustomErrors.LOG_WARNING, false, err)
+						response.Status = 5017
+						response.Msg = "internal server error"
+					} else {
+						cookie := &http.Cookie{
+							Name:     "token",
+							Value:    jwt,
+							Expires:  expTime,
+							Path:     "/",
+							Secure:   true,
+							SameSite: 4,
+							HttpOnly: false,
+							MaxAge:   900,
+						}
+						http.SetCookie(w, cookie)
 					}
-					http.SetCookie(w, cookie)
 				}
-				response.Status = 200
-				response.Msg = "ok"
 			}
 		}
 	}
 
 	//Return success message
-
 	marshal, err := json.Marshal(response)
 	if err != nil {
 		return

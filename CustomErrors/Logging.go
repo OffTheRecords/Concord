@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+const (
+	LOG_FATAL   = "FATAL"
+	LOG_WARNING = "WARNING"
+	LOG_INFO    = "INFO"
+)
+
 func LogError(errorCode int, errorType string, exit bool, err error) {
 	dt := time.Now()
 

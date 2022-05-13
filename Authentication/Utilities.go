@@ -2,25 +2,16 @@ package Authentication
 
 import (
 	"Concord/CustomErrors"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"fmt"
-	"github.com/golang-jwt/jwt"
-	"io/ioutil"
+	"Concord/Structures"
+	"context"
+	"errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"reflect"
 	"regexp"
 	"time"
 )
-
-type Claims struct {
-	Email      string `json:"email"`
-	Role       string `json:"role"`
-	Authorized bool   `json:"authorized"`
-	jwt.StandardClaims
-}
 
 //Will check if the entered struct has any uninitialized types (either nil or empty string)
 func FieldValidityCheck(value reflect.Value, ref reflect.Type) CustomErrors.GenericErrors {
@@ -64,72 +55,27 @@ func FieldEmptyCheck(value reflect.Value) CustomErrors.GenericErrors {
 	return nil
 }
 
-func GenerateJWT(userDetails reflect.Value) (string, error, time.Time) {
-	priv, err := ioutil.ReadFile("res/jwt_private.pem")
-	jwtKey, _ := jwt.ParseRSAPrivateKeyFromPEM(priv)
-
-	expiration := time.Now().Add(15 * time.Minute)
-	claims := &Claims{
-		Email:      userDetails.FieldByName("Email").String(),
-		Role:       userDetails.FieldByName("Role").String(),
-		Authorized: true,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expiration.Unix(),
-		},
+func makeRelativeDir(path string) CustomErrors.GenericErrors {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(path, 0750)
+		if err != nil {
+			return CustomErrors.NewGenericError(5005, err.Error())
+		}
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
-
-	if err != nil {
-		return "", err, expiration
-	}
-	return tokenString, nil, expiration
+	return nil
 }
 
-func GeneratePrivateKey() {
-	// generate key
-	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
+func GetUserFromDB(email string, dbClient *mongo.Database) (Structures.Users, CustomErrors.GenericErrors) {
+	var user Structures.Users
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := dbClient.Collection(getAuthCollection()).FindOne(ctx, bson.D{{"email", email}}).Decode(&user)
 	if err != nil {
-		fmt.Printf("Cannot generate RSA key\n")
-		os.Exit(1)
+		if err == mongo.ErrNoDocuments {
+			return user, CustomErrors.NewGenericError(4010, "No matching email")
+		} else {
+			return user, CustomErrors.NewGenericError(5014, err.Error())
+		}
 	}
-	publickey := &privatekey.PublicKey
-
-	// dump private key to file
-	var privateKeyBytes []byte = x509.MarshalPKCS1PrivateKey(privatekey)
-	privateKeyBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privateKeyBytes,
-	}
-	privatePem, err := os.Create("res/jwt_private.pem")
-	if err != nil {
-		fmt.Printf("error when create private.pem: %s \n", err)
-		os.Exit(1)
-	}
-	err = pem.Encode(privatePem, privateKeyBlock)
-	if err != nil {
-		fmt.Printf("error when encode private pem: %s \n", err)
-		os.Exit(1)
-	}
-
-	// dump public key to file
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publickey)
-	if err != nil {
-		fmt.Printf("error when dumping publickey: %s \n", err)
-		os.Exit(1)
-	}
-	publicKeyBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKeyBytes,
-	}
-	publicPem, err := os.Create("res/jwt_public.pem")
-	if err != nil {
-		fmt.Printf("error when create public.pem: %s \n", err)
-		os.Exit(1)
-	}
-	err = pem.Encode(publicPem, publicKeyBlock)
-	if err != nil {
-		fmt.Printf("error when encode public pem: %s \n", err)
-		os.Exit(1)
-	}
+	return user, nil
 }
