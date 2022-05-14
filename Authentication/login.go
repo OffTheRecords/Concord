@@ -5,7 +5,6 @@ import (
 	"Concord/Structures"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 func Login(email string, password string, dbClient *mongo.Database) (Structures.AuthTokens, CustomErrors.GenericErrors) {

@@ -104,8 +104,6 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	//TODO Return refresh token
-
 	//Return status message
 	marshal, err := json.Marshal(response)
 	if err != nil {

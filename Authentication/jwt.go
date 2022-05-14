@@ -3,6 +3,7 @@ package Authentication
 import (
 	"Concord/CustomErrors"
 	"Concord/Structures"
+	"crypto"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
@@ -18,6 +19,9 @@ import (
 
 const JWT_KEY_STORAGE_LOCATION = "res"
 const JWT_TOKEN_TTL_MIN = 15
+const REFRESH_TOKEN_TTL_MIN = 1440
+
+var jwtPrivateKey crypto.PrivateKey
 
 type Claims struct {
 	ID   primitive.ObjectID `bson:"_id" json:"id,omitempty"`
@@ -57,11 +61,11 @@ func GenerateJWT(user Structures.Users) (Structures.AuthTokens, error) {
 		ID:   user.ID,
 		Role: user.Role.ID,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expiration.Unix(),
+			ExpiresAt: expirationJWT.Unix(),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(jwtPrivateKey)
 	if err != nil {
 		return tk, err
 	}
