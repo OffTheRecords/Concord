@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
@@ -25,18 +26,33 @@ type Claims struct {
 }
 
 //Generates server jwt tokens if they do not exist
-func GenerateJWT(user Structures.Users) (string, error, time.Time) {
-	priv, err := ioutil.ReadFile(JWT_KEY_STORAGE_LOCATION + "/jwt_private.pem")
+func GenerateJWT(user Structures.Users) (Structures.AuthTokens, error) {
+
+	//Add expiration times to structure
+	expirationJWT := time.Now().Add(JWT_TOKEN_TTL_MIN * time.Minute)
+	expirationRT := time.Now().Add(REFRESH_TOKEN_TTL_MIN * time.Minute)
+	tk := Structures.AuthTokens{AccessExpiry: expirationJWT, RefreshExpiry: expirationRT}
+
+	//Assign unique id to refresh token for revocation usage
+	rt_uuid, err := uuid.NewRandom()
 	if err != nil {
-		return "", err, time.Now()
+		return Structures.AuthTokens{}, err
+	}
+	tk.RefreshID = rt_uuid.String()
+
+	//Load private key into memory so it does not need to be reloaded everytime its used
+	if jwtPrivateKey == nil {
+		priv, err := ioutil.ReadFile(JWT_KEY_STORAGE_LOCATION + "/jwt_private.pem")
+		if err != nil {
+			return tk, err
+		}
+		jwtPrivateKey, err = jwt.ParseEdPrivateKeyFromPEM(priv)
+		if err != nil {
+			return tk, err
+		}
 	}
 
-	jwtKey, err := jwt.ParseEdPrivateKeyFromPEM(priv)
-	if err != nil {
-		return "", err, time.Now()
-	}
-
-	expiration := time.Now().Add(JWT_TOKEN_TTL_MIN * time.Minute)
+	//Create jwt acccess token
 	claims := &Claims{
 		ID:   user.ID,
 		Role: user.Role.ID,
@@ -47,10 +63,25 @@ func GenerateJWT(user Structures.Users) (string, error, time.Time) {
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
-		return "", err, expiration
+		return tk, err
 	}
+	tk.AccessToken = tokenString
 
-	return tokenString, nil, expiration
+	//Create Refresh Token
+	claimsRefresh := Claims{
+		ID: user.ID,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationRT.Unix(),
+		},
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claimsRefresh)
+	refreshTokenString, err := refreshToken.SignedString(jwtPrivateKey)
+	if err != nil {
+		return tk, err
+	}
+	tk.RefreshToken = refreshTokenString
+
+	return tk, nil
 }
 
 func GeneratePrivateKey() {

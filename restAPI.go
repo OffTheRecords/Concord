@@ -71,22 +71,35 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 			response.Status = fieldsErr.ErrorCode()
 			response.Msg = fieldsErr.ErrorMsg()
 		} else {
-			jwt, gerr, expTime := Authentication.Login(login.Email, login.Password, vars.dbClient)
+			jwt, gerr := Authentication.Login(login.Email, login.Password, vars.dbClient)
 			if gerr != nil {
 				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
 				//Set jwt token cookie
-				cookie := &http.Cookie{
-					Name:     "token",
-					Value:    jwt,
-					Expires:  expTime,
+				accessCookie := &http.Cookie{
+					Name:     "accessToken",
+					Value:    jwt.AccessToken,
+					Expires:  jwt.AccessExpiry,
 					MaxAge:   Authentication.JWT_TOKEN_TTL_MIN * 60,
 					HttpOnly: true,
 					Path:     "/",
 					Secure:   true,
 					SameSite: http.SameSiteNoneMode,
 				}
-				http.SetCookie(w, cookie)
+				fmt.Print(accessCookie)
+				http.SetCookie(w, accessCookie)
+
+				refreshCookie := &http.Cookie{
+					Name:     "refreshToken",
+					Value:    jwt.RefreshToken,
+					Expires:  jwt.RefreshExpiry,
+					MaxAge:   Authentication.REFRESH_TOKEN_TTL_MIN * 60,
+					HttpOnly: true,
+					Path:     "/auth/refresh",
+					Secure:   true,
+					SameSite: http.SameSiteNoneMode,
+				}
+				http.SetCookie(w, refreshCookie)
 			}
 		}
 	}
@@ -140,23 +153,35 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 					CustomErrors.ErrorCodeHandler(gerr, &response)
 				} else {
 					//GENERATE AUTH TOKEN upon successful registration
-					jwt, err, expTime := Authentication.GenerateJWT(user)
+					jwt, err := Authentication.GenerateJWT(user)
 					if err != nil {
 						CustomErrors.LogError(5017, CustomErrors.LOG_WARNING, false, err)
 						response.Status = 5017
 						response.Msg = "internal server error"
 					} else {
-						cookie := &http.Cookie{
-							Name:     "token",
-							Value:    jwt,
-							Expires:  expTime,
+						accessCookie := &http.Cookie{
+							Name:     "accessToken",
+							Value:    jwt.AccessToken,
+							Expires:  jwt.AccessExpiry,
+							MaxAge:   Authentication.JWT_TOKEN_TTL_MIN * 60,
+							HttpOnly: true,
 							Path:     "/",
 							Secure:   true,
-							SameSite: 4,
-							HttpOnly: false,
-							MaxAge:   900,
+							SameSite: http.SameSiteNoneMode,
 						}
-						http.SetCookie(w, cookie)
+						http.SetCookie(w, accessCookie)
+
+						refreshCookie := &http.Cookie{
+							Name:     "refreshToken",
+							Value:    jwt.RefreshToken,
+							Expires:  jwt.RefreshExpiry,
+							MaxAge:   Authentication.REFRESH_TOKEN_TTL_MIN * 60,
+							HttpOnly: true,
+							Path:     "/auth/refresh",
+							Secure:   true,
+							SameSite: http.SameSiteNoneMode,
+						}
+						http.SetCookie(w, refreshCookie)
 					}
 				}
 			}
