@@ -6,7 +6,8 @@ import (
 
 //Structure used to access all fields of a user in the database
 type Users struct {
-	ID            primitive.ObjectID `bson:"-" json:"id"`
+	//ID            primitive.ObjectID `bson:"-" json:"id"`
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Username      string             `json:"username"`
 	Discriminator string             `json:"discriminator,omitempty"`
 	Avatar        string             `json:"avatar,omitempty"`

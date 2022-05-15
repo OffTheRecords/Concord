@@ -7,23 +7,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func Login(email string, password string, dbClient *mongo.Database) (Structures.AuthTokens, CustomErrors.GenericErrors) {
+func Login(email string, password string, dbClient *mongo.Database) (Structures.AuthTokens, Structures.Users, CustomErrors.GenericErrors) {
 	user, gerr := GetUserFromDB(email, dbClient)
 	jwtToken := Structures.AuthTokens{}
 	if gerr != nil {
-		return jwtToken, gerr
+		return jwtToken, Structures.Users{}, gerr
 	}
 
 	err := bcrypt.CompareHashAndPassword(user.Password, []byte(password))
 	if err != nil {
-		return jwtToken, CustomErrors.NewGenericError(4009, "Invalid password")
+		return jwtToken, Structures.Users{}, CustomErrors.NewGenericError(4009, "Invalid password")
 	}
 
 	jwtToken, err = GenerateJWT(user)
 	if err != nil {
 		CustomErrors.LogError(5015, CustomErrors.LOG_WARNING, false, err)
-		return jwtToken, CustomErrors.NewGenericError(5015, err.Error())
+		return jwtToken, Structures.Users{}, CustomErrors.NewGenericError(5015, err.Error())
 	}
 
-	return jwtToken, nil
+	return jwtToken, user, nil
 }

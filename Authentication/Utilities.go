@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"os"
 	"reflect"
@@ -69,10 +70,31 @@ func GetUserFromDB(email string, dbClient *mongo.Database) (Structures.Users, Cu
 	var user Structures.Users
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err := dbClient.Collection(getAuthCollection()).FindOne(ctx, bson.D{{"email", email}}).Decode(&user)
+	err := dbClient.Collection(GetAuthCollection()).FindOne(ctx, bson.D{{"email", email}}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return user, CustomErrors.NewGenericError(4010, "No matching email")
+		} else {
+			return user, CustomErrors.NewGenericError(5014, err.Error())
+		}
+	}
+	return user, nil
+}
+
+func GetUserUsingIDFromDB(userID string, dbClient *mongo.Database) (Structures.Users, CustomErrors.GenericErrors) {
+	var user Structures.Users
+
+	userHex, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return user, CustomErrors.NewGenericError(5019, err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = dbClient.Collection(GetAuthCollection()).FindOne(ctx, bson.D{{"_id", userHex}}).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return user, CustomErrors.NewGenericError(4013, "No matching _id")
 		} else {
 			return user, CustomErrors.NewGenericError(5014, err.Error())
 		}

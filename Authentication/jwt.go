@@ -22,6 +22,7 @@ const JWT_TOKEN_TTL_MIN = 15
 const REFRESH_TOKEN_TTL_MIN = 1440
 
 var jwtPrivateKey crypto.PrivateKey
+var jwtPublicKey crypto.PublicKey
 
 type Claims struct {
 	ID   primitive.ObjectID `bson:"_id" json:"id,omitempty"`
@@ -155,4 +156,35 @@ func CheckAndCreateKeys() {
 	} else {
 		CustomErrors.LogError(2002, CustomErrors.LOG_INFO, false, errors.New("jwt keys already exist"))
 	}
+}
+
+func VerifyJWT(accessToken string) (Claims, CustomErrors.GenericErrors) {
+
+	// pass your custom claims to the parser function
+	token, err := jwt.ParseWithClaims(accessToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodEd25519)
+		if !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+
+		//Load public key into memory so it does not need to be reloaded everytime its used
+		if jwtPublicKey == nil {
+			pub, err := ioutil.ReadFile(JWT_KEY_STORAGE_LOCATION + "/jwt_public.pem")
+			if err != nil {
+				return Claims{}, err
+			}
+			jwtPublicKey, err = jwt.ParseEdPublicKeyFromPEM(pub)
+			if err != nil {
+				return Claims{}, err
+			}
+		}
+		return jwtPublicKey, nil
+	})
+	if err != nil {
+		return Claims{}, CustomErrors.NewGenericError(5018, err.Error())
+	}
+
+	// type-assert `Claims` into a variable of the appropriate type
+	myClaims := token.Claims.(*Claims)
+	return *myClaims, nil
 }

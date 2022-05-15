@@ -73,7 +73,7 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 			response.Status = fieldsErr.ErrorCode()
 			response.Msg = fieldsErr.ErrorMsg()
 		} else {
-			jwt, gerr := Authentication.Login(login.Email, login.Password, vars.dbClient)
+			jwt, user, gerr := Authentication.Login(login.Email, login.Password, vars.dbClient)
 			if gerr != nil {
 				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
@@ -88,7 +88,6 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 					Secure:   true,
 					SameSite: http.SameSiteNoneMode,
 				}
-				fmt.Print(accessCookie)
 				http.SetCookie(w, accessCookie)
 
 				refreshCookie := &http.Cookie{
@@ -102,6 +101,11 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 					SameSite: http.SameSiteNoneMode,
 				}
 				http.SetCookie(w, refreshCookie)
+
+				//Json message response
+				loginResponse := Structures.LoginResponse{ID: user.ID.Hex()}
+				loginResponseJson, _ := json.Marshal(loginResponse)
+				response.Msg = string(loginResponseJson)
 			}
 		}
 	}
@@ -144,7 +148,7 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 		} else {
 			//Fields okay
 			//create new record in database for user
-			gerr := Authentication.RegisterUser(register.Email, register.Username, register.Password, vars.dbClient)
+			_, gerr := Authentication.RegisterUser(register.Email, register.Username, register.Password, vars.dbClient)
 			if gerr != nil {
 				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
@@ -182,6 +186,11 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 							SameSite: http.SameSiteNoneMode,
 						}
 						http.SetCookie(w, refreshCookie)
+
+						//Json message response
+						registerResponse := Structures.RegisterResponse{ID: user.ID.Hex()}
+						registerResponseJson, _ := json.Marshal(registerResponse)
+						response.Msg = string(registerResponseJson)
 					}
 				}
 			}
@@ -201,4 +210,88 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 	//DEBUG
 	fmt.Printf("\nGot register request with email: %s, passsword: %s, username: %s\n", register.Email, register.Password, register.Username)
 
+}
+
+func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var response Structures.Response
+	response.Status = 200
+	response.Msg = "ok"
+
+	//Return success message
+	writeStatusMessage(w, &response)
+}
+
+func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var response Structures.Response
+	response.Status = 200
+	response.Msg = "ok"
+
+	accessToken, gerr := jwtSetCheck(r)
+	if gerr != nil {
+		response.Status = gerr.ErrorCode()
+		response.Msg = gerr.ErrorMsg()
+		writeStatusMessage(w, &response)
+		return
+	}
+
+	claim, gerr := Authentication.VerifyJWT(accessToken)
+	if gerr != nil {
+		CustomErrors.ErrorCodeHandler(gerr, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
+
+	//TODO check if the requester is requesting their own profile
+	if claim.ID.Hex() == mux.Vars(r)["id"] {
+		user, gerr := Authentication.GetUserUsingIDFromDB(claim.ID.Hex(), vars.dbClient)
+		if gerr != nil {
+			CustomErrors.ErrorCodeHandler(gerr, &response)
+			writeStatusMessage(w, &response)
+			return
+		}
+
+		//Json message response
+		userGetResponse := Structures.Users{ID: user.ID, Username: user.Username}
+		userGetResponseJson, _ := json.Marshal(userGetResponse)
+		response.Msg = string(userGetResponseJson)
+		response.Status = 200
+	} else {
+		//TODO return unauthorized
+		response.Status = 401
+
+		response.Msg = "user " + claim.ID.Hex() + " unauthorized to view profile " + mux.Vars(r)["id"]
+	}
+
+	//TODO if checking own profile return it, otherwise return unauthorized
+
+	writeStatusMessage(w, &response)
+}
+
+func jwtSetCheck(r *http.Request) (string, CustomErrors.GenericErrors) {
+	cookie, err := r.Cookie("accessToken")
+	if err != nil {
+		return "", CustomErrors.NewGenericError(4012, "accessToken cookie not found")
+	}
+
+	cookieValue := cookie.Value
+	if len(cookieValue) == 0 {
+		return "", CustomErrors.NewGenericError(4012, "accessToken cookie not found")
+	}
+
+	return cookieValue, nil
+}
+
+func writeStatusMessage(w http.ResponseWriter, response *Structures.Response) {
+	marshal, err := json.Marshal(response)
+	if err != nil {
+		return
+	}
+	_, err = w.Write(marshal)
+	if err != nil {
+		return
+	}
 }
