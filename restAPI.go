@@ -24,6 +24,8 @@ func startRestAPI(dbClient *mongo.Database) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST", "OPTIONS")
+	router.HandleFunc("/auth/refresh", handlerVars.refreshHandler).Methods("POST", "OPTIONS")
+	router.HandleFunc("/user/{id:[0-9a-z]{24}$}", handlerVars.userGetHandler).Methods("GET", "OPTIONS")
 
 	//TODO: ALLOW PASSING IN VARIABLE FOR ALLOWED ORIGIN
 	allowedOrigins := handlers.AllowedOrigins([]string{"https://localhost:8080", "https://127.0.0.1:8080"})
