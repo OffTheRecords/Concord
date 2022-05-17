@@ -255,7 +255,7 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 		}
 
 		//Json message response
-		userGetResponse := Structures.Users{ID: user.ID, Username: user.Username}
+		userGetResponse := Structures.Users{ID: user.ID, Username: user.Username, Discriminator: user.Discriminator, Avatar: user.Avatar, Bot: user.Bot, System: user.System, MFA: user.MFA, Banner: user.Banner, Accent_Color: user.Accent_Color, Locale: user.Locale, Email: user.Email, EmailVerified: user.EmailVerified}
 		userGetResponseJson, _ := json.Marshal(userGetResponse)
 		response.Msg = string(userGetResponseJson)
 		response.Status = 200
@@ -266,7 +266,7 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 		response.Msg = "user " + claim.ID.Hex() + " unauthorized to view profile " + mux.Vars(r)["id"]
 	}
 
-	//TODO if checking own profile return it, otherwise return unauthorized
+	// TODO if checking own profile return it, otherwise return unauthorized
 
 	writeStatusMessage(w, &response)
 }

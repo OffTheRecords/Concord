@@ -16,16 +16,16 @@ type Users struct {
 	MFA           bool               `json:"mfa,omitempty"`
 	Banner        string             `json:"banner,omitempty"`
 	Accent_Color  int                `json:"accent_color,omitempty"`
-	locale        string             `json:"locale,omitempty"`
-	Email         string             `json:"email"`
-	EmailVerified bool               `json:"emailverified"`
-	Password      []byte             `json:"password"`
-	Role          Role               `json:"roles,omitempty"`
-	RegisterTime  int64              `json:"registertime"`
+	Locale        string             `json:"locale,omitempty"`
+	Email         string             `json:"email,omitempty"`
+	EmailVerified bool               `json:"emailverified,omitempty"`
+	Password      []byte             `json:"password,omitempty"`
+	Role          Role               `json:"role,omitempty"`
+	RegisterTime  int64              `json:"registertime,omitempty"`
 }
 type Role struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Expiry   int64  `json:"expiry"`
-	Creation int64  `json:"creation"`
+	ID       int    `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Expiry   int64  `json:"expiry,omitempty"`
+	Creation int64  `json:"creation,omitempty"`
 }
