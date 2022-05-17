@@ -9,23 +9,23 @@ type Users struct {
 	//ID            primitive.ObjectID `bson:"-" json:"id"`
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Username      string             `json:"username"`
-	Discriminator string             `json:"discriminator,omitempty"`
-	Avatar        string             `json:"avatar,omitempty"`
-	Bot           bool               `json:"bot,omitempty"`
-	System        bool               `json:"system,omitempty"`
-	MFA           bool               `json:"mfa,omitempty"`
-	Banner        string             `json:"banner,omitempty"`
-	Accent_Color  int                `json:"accent_color,omitempty"`
-	Locale        string             `json:"locale,omitempty"`
-	Email         string             `json:"email,omitempty"`
-	EmailVerified bool               `json:"emailverified,omitempty"`
+	Discriminator string             `json:"discriminator"`
+	Avatar        string             `json:"avatar"`
+	Bot           bool               `json:"bot"`
+	System        bool               `json:"system"`
+	MFA           bool               `json:"mfa"`
+	Banner        string             `json:"banner"`
+	Accent_Color  int                `json:"accent_color"`
+	Locale        string             `json:"locale"`
+	Email         string             `json:"email"`
+	EmailVerified bool               `json:"emailverified"`
 	Password      []byte             `json:"password,omitempty"`
-	Role          Role               `json:"role,omitempty"`
-	RegisterTime  int64              `json:"registertime,omitempty"`
+	Role          Role               `json:"role"`
+	RegisterTime  int64              `json:"registertime"`
 }
 type Role struct {
-	ID       int    `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Expiry   int64  `json:"expiry,omitempty"`
-	Creation int64  `json:"creation,omitempty"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Expiry   int64  `json:"expiry"`
+	Creation int64  `json:"creation"`
 }
