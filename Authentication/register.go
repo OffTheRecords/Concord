@@ -23,6 +23,8 @@ func RegisterUser(email string, username string, password string, dbClient *mong
 		return primitive.NilObjectID, CustomErrors.NewGenericError(4011, "Password encryption error")
 	}
 
+	//Update time of unverified role
+	Structures.UNVERIFIED_ROLE.Creation = time.Now().Unix()
 	registerDB := Structures.Users{Email: email, Username: username, Password: ciphertext, EmailVerified: false, RegisterTime: time.Now().Unix(), Role: Structures.UNVERIFIED_ROLE}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
