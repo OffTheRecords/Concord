@@ -5,9 +5,11 @@ import (
 	"Concord/CustomErrors"
 	"context"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"os"
 	"time"
 )
 
@@ -18,7 +20,8 @@ func main() {
 	//Read required program args
 	runTimeArgs := readRunTimeArgs()
 	if !runTimeArgs.valid {
-		fmt.Printf("Exiting, program args invalid")
+		fmt.Printf("Exiting, program args invalid\n")
+		os.Exit(1)
 	}
 
 	//Connect to Mongo database
@@ -53,10 +56,17 @@ func main() {
 	//Mongo database pointer
 	dbClient := mongoClient.Database(runTimeArgs.dbNameMongo)
 
+	//Connect to redis database
+	redisGlobalClient := redis.NewClient(&redis.Options{
+		Addr:     runTimeArgs.redisGlobalHostAddr + ":" + runTimeArgs.redisGlobalHostPort,
+		Password: runTimeArgs.redisGlobalPassword, // no password set
+		DB:       0,                               // use default DB
+	})
+
 	//Create certs for
 	Authentication.CheckAndCreateKeys()
 
 	//Start serving client api requests
-	startRestAPI(dbClient)
+	startRestAPI(dbClient, redisGlobalClient)
 
 }

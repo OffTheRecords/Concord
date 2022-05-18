@@ -9,13 +9,16 @@ import (
 )
 
 type runTimeArgs struct {
-	valid       bool
-	logLevel    string
-	dbUserMongo string
-	dbPassMongo string
-	dbPortMongo string
-	dbHostMongo string
-	dbNameMongo string
+	valid               bool
+	logLevel            string
+	dbUserMongo         string
+	dbPassMongo         string
+	dbPortMongo         string
+	dbHostMongo         string
+	dbNameMongo         string
+	redisGlobalHostAddr string
+	redisGlobalHostPort string
+	redisGlobalPassword string
 }
 
 func readRunTimeArgs() runTimeArgs {
@@ -68,7 +71,7 @@ func readRunTimeArgs() runTimeArgs {
 	}
 	programArgs.dbHostMongo = dbHostMongo
 
-	//Get Mongo database host address
+	//Get Mongo database name
 	dbNameMongo, err := readStringArg("dbNameMongo", "\\A.{1,64}$")
 	if err != nil {
 		fmt.Print(err.Error() + "\n")
@@ -76,6 +79,33 @@ func readRunTimeArgs() runTimeArgs {
 		return programArgs
 	}
 	programArgs.dbNameMongo = dbNameMongo
+
+	//Get global redis host address
+	redisGlobalHostAddr, err := readStringArg("redisGlobalHostAddr", "\\A.{1,128}$")
+	if err != nil {
+		fmt.Print(err.Error() + "\n")
+		programArgs.valid = false
+		return programArgs
+	}
+	programArgs.redisGlobalHostAddr = redisGlobalHostAddr
+
+	//Get global redis port
+	redisGlobalHostPort, err := readStringArg("redisGlobalHostPort", "\\A[0-9]{1,5}$")
+	if err != nil {
+		fmt.Print(err.Error() + "\n")
+		programArgs.valid = false
+		return programArgs
+	}
+	programArgs.redisGlobalHostPort = redisGlobalHostPort
+
+	//Get global redis password
+	redisGlobalHostPassword, err := readStringArg("redisGlobalHostPassword", "\\A.{1,128}$")
+	if err != nil {
+		fmt.Print(err.Error() + "\n")
+		programArgs.valid = false
+		return programArgs
+	}
+	programArgs.redisGlobalHostPort = redisGlobalHostPassword
 
 	programArgs.valid = true
 

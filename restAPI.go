@@ -4,22 +4,27 @@ import (
 	"Concord/Authentication"
 	"Concord/CustomErrors"
 	"Concord/Structures"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
+	"time"
 )
 
 type WebHandlerVars struct {
-	dbClient *mongo.Database
+	dbClient          *mongo.Database
+	redisGlobalClient *redis.Client
 }
 
-func startRestAPI(dbClient *mongo.Database) {
-	handlerVars := &WebHandlerVars{dbClient: dbClient}
+func startRestAPI(dbClient *mongo.Database, redisGlobalClient *redis.Client) {
+	handlerVars := &WebHandlerVars{dbClient: dbClient, redisGlobalClient: redisGlobalClient}
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST", "OPTIONS")
@@ -219,6 +224,40 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 	response.Status = 200
 	response.Msg = "ok"
 
+	// TODO check if cookie for refresh token set
+	refreshToken, gerr := refreshTokenSetCheck(r)
+	if gerr != nil {
+		response.Status = gerr.ErrorCode()
+		response.Msg = gerr.ErrorMsg()
+		writeStatusMessage(w, &response)
+		return
+	}
+
+	// TODO check if token is valid
+	claim, gerr := Authentication.VerifyJWT(refreshToken)
+	if gerr != nil {
+		CustomErrors.ErrorCodeHandler(gerr, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
+
+	//Determine key of access token in database
+	redisKey := claim.ID.Hex() + ".rt." + strconv.FormatInt(claim.ExpiresAt, 10)
+
+	// TODO check if refresh token is not blacklisted
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	value, err := vars.redisGlobalClient.Get(ctx, redisKey).Result()
+	if err != nil {
+		response.Status = 520
+		response.Msg = err.Error()
+		CustomErrors.ErrorCodeHandler(gerr, &response)
+		writeStatusMessage(w, &response)
+	}
+	fmt.Println("redisValue" + value)
+
+	// TODO Issue new jwt and refresh token and add old refresh token to blacklist
+
 	//Return success message
 	writeStatusMessage(w, &response)
 }
@@ -245,7 +284,6 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	//TODO check if the requester is requesting their own profile
 	if claim.ID.Hex() == mux.Vars(r)["id"] {
 		user, gerr := Authentication.GetUserUsingIDFromDB(claim.ID.Hex(), vars.dbClient)
 		if gerr != nil {
@@ -260,13 +298,10 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 		response.Msg = string(userGetResponseJson)
 		response.Status = 200
 	} else {
-		//TODO return unauthorized
 		response.Status = 401
 
 		response.Msg = "user " + claim.ID.Hex() + " unauthorized to view profile " + mux.Vars(r)["id"]
 	}
-
-	// TODO if checking own profile return it, otherwise return unauthorized
 
 	writeStatusMessage(w, &response)
 }
@@ -280,6 +315,20 @@ func jwtSetCheck(r *http.Request) (string, CustomErrors.GenericErrors) {
 	cookieValue := cookie.Value
 	if len(cookieValue) == 0 {
 		return "", CustomErrors.NewGenericError(4012, "accessToken cookie not found")
+	}
+
+	return cookieValue, nil
+}
+
+func refreshTokenSetCheck(r *http.Request) (string, CustomErrors.GenericErrors) {
+	cookie, err := r.Cookie("refreshToken")
+	if err != nil {
+		return "", CustomErrors.NewGenericError(4014, "refreshToken cookie not found")
+	}
+
+	cookieValue := cookie.Value
+	if len(cookieValue) == 0 {
+		return "", CustomErrors.NewGenericError(4015, "refreshToken cookie not found")
 	}
 
 	return cookieValue, nil
