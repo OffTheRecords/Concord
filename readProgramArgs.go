@@ -99,13 +99,13 @@ func readRunTimeArgs() runTimeArgs {
 	programArgs.redisGlobalHostPort = redisGlobalHostPort
 
 	//Get global redis password
-	redisGlobalHostPassword, err := readStringArg("redisGlobalHostPassword", "\\A.{1,128}$")
+	redisGlobalPassword, err := readStringArg("redisGlobalPassword", "\\A.{1,128}$")
 	if err != nil {
 		fmt.Print(err.Error() + "\n")
 		programArgs.valid = false
 		return programArgs
 	}
-	programArgs.redisGlobalHostPort = redisGlobalHostPassword
+	programArgs.redisGlobalPassword = redisGlobalPassword
 
 	programArgs.valid = true
 

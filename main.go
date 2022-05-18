@@ -59,9 +59,17 @@ func main() {
 	//Connect to redis database
 	redisGlobalClient := redis.NewClient(&redis.Options{
 		Addr:     runTimeArgs.redisGlobalHostAddr + ":" + runTimeArgs.redisGlobalHostPort,
-		Password: runTimeArgs.redisGlobalPassword, // no password set
-		DB:       0,                               // use default DB
+		Password: runTimeArgs.redisGlobalPassword,
+		DB:       0, // use default DB
 	})
+
+	//Ping redis global database
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = redisGlobalClient.Ping(ctx).Result()
+	if err != nil {
+		CustomErrors.LogError(5021, "FATAL", true, err)
+	}
 
 	//Create certs for
 	Authentication.CheckAndCreateKeys()
