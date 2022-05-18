@@ -83,6 +83,16 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 				CustomErrors.ErrorCodeHandler(gerr, &response)
 			} else {
 				//Set jwt token cookie
+				accessCookieExpiry := &http.Cookie{
+					Name:     "accessTokenExpiry",
+					Value:    strconv.FormatInt(jwt.AccessExpiry.Unix()-30, 10),
+					MaxAge:   Authentication.JWT_TOKEN_TTL_MIN*60 - 30,
+					Path:     "/",
+					Secure:   true,
+					SameSite: http.SameSiteNoneMode,
+				}
+				http.SetCookie(w, accessCookieExpiry)
+
 				accessCookie := &http.Cookie{
 					Name:     "accessToken",
 					Value:    jwt.AccessToken,
@@ -168,10 +178,19 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 						response.Status = 5017
 						response.Msg = "internal server error"
 					} else {
+						accessCookieExpiry := &http.Cookie{
+							Name:     "accessTokenExpiry",
+							Value:    strconv.FormatInt(jwt.AccessExpiry.Unix()-30, 10),
+							MaxAge:   Authentication.JWT_TOKEN_TTL_MIN*60 - 30,
+							Path:     "/",
+							Secure:   true,
+							SameSite: http.SameSiteNoneMode,
+						}
+						http.SetCookie(w, accessCookieExpiry)
+
 						accessCookie := &http.Cookie{
 							Name:     "accessToken",
 							Value:    jwt.AccessToken,
-							Expires:  jwt.AccessExpiry,
 							MaxAge:   Authentication.JWT_TOKEN_TTL_MIN * 60,
 							HttpOnly: true,
 							Path:     "/",
@@ -183,7 +202,6 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 						refreshCookie := &http.Cookie{
 							Name:     "refreshToken",
 							Value:    jwt.RefreshToken,
-							Expires:  jwt.RefreshExpiry,
 							MaxAge:   Authentication.REFRESH_TOKEN_TTL_MIN * 60,
 							HttpOnly: true,
 							Path:     "/auth/refresh",
