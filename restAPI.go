@@ -29,7 +29,7 @@ func startRestAPI(dbClient *mongo.Database, redisGlobalClient *redis.Client) {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST", "OPTIONS")
-	router.HandleFunc("/auth/refresh", handlerVars.refreshHandler).Methods("POST", "OPTIONS")
+	router.HandleFunc("/auth/refresh", handlerVars.refreshHandler).Methods("GET", "OPTIONS")
 	router.HandleFunc("/user/{id:[0-9a-z]{24}$}", handlerVars.userGetHandler).Methods("GET", "OPTIONS")
 
 	//TODO: ALLOW PASSING IN VARIABLE FOR ALLOWED ORIGIN
@@ -80,7 +80,7 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 		} else {
 			jwt, user, gerr := Authentication.Login(login.Email, login.Password, vars.dbClient)
 			if gerr != nil {
-				CustomErrors.ErrorCodeHandler(gerr, &response)
+				CustomErrors.GenericErrorCodeHandler(gerr, &response)
 			} else {
 				//Set jwt token cookie
 				accessCookieExpiry := &http.Cookie{
@@ -165,11 +165,11 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 			//create new record in database for user
 			_, gerr := Authentication.RegisterUser(register.Email, register.Username, register.Password, vars.dbClient)
 			if gerr != nil {
-				CustomErrors.ErrorCodeHandler(gerr, &response)
+				CustomErrors.GenericErrorCodeHandler(gerr, &response)
 			} else {
 				user, gerr := Authentication.GetUserFromDB(register.Email, vars.dbClient)
 				if gerr != nil {
-					CustomErrors.ErrorCodeHandler(gerr, &response)
+					CustomErrors.GenericErrorCodeHandler(gerr, &response)
 				} else {
 					//GENERATE AUTH TOKEN upon successful registration
 					jwt, err := Authentication.GenerateJWT(user)
@@ -242,7 +242,7 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 	response.Status = 200
 	response.Msg = "ok"
 
-	// TODO check if cookie for refresh token set
+	//check if cookie for refresh token set
 	refreshToken, gerr := refreshTokenSetCheck(r)
 	if gerr != nil {
 		response.Status = gerr.ErrorCode()
@@ -251,10 +251,10 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// TODO check if token is valid
+	//check if refresh token is valid
 	claim, gerr := Authentication.VerifyJWT(refreshToken)
 	if gerr != nil {
-		CustomErrors.ErrorCodeHandler(gerr, &response)
+		CustomErrors.GenericErrorCodeHandler(gerr, &response)
 		writeStatusMessage(w, &response)
 		return
 	}
@@ -262,19 +262,72 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 	//Determine key of access token in database
 	redisKey := claim.ID.Hex() + ".rt." + strconv.FormatInt(claim.ExpiresAt, 10)
 
-	// TODO check if refresh token is not blacklisted
+	//check if refresh token is not blacklisted
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	value, err := vars.redisGlobalClient.Get(ctx, redisKey).Result()
+	instances, err := vars.redisGlobalClient.Exists(ctx, redisKey).Result()
 	if err != nil {
-		response.Status = 520
-		response.Msg = err.Error()
-		CustomErrors.ErrorCodeHandler(gerr, &response)
+		CustomErrors.LogError(5020, CustomErrors.LOG_WARNING, false, err)
+		CustomErrors.ErrorCodeHandler(5020, err, &response)
 		writeStatusMessage(w, &response)
+		return
 	}
-	fmt.Println("redisValue" + value)
+	if instances > 0 {
+		gerr = CustomErrors.NewGenericError(4008, "refresh token blacklisted")
+		CustomErrors.GenericErrorCodeHandler(gerr, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
 
-	// TODO Issue new jwt and refresh token and add old refresh token to blacklist
+	//Issue new jwt and refresh token
+	user, gerr := Authentication.GetUserUsingIDFromDB(claim.ID.Hex(), vars.dbClient)
+	if gerr != nil {
+		CustomErrors.LogError(gerr.ErrorCode(), CustomErrors.LOG_WARNING, false, gerr)
+		CustomErrors.GenericErrorCodeHandler(gerr, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
+	jwt, err := Authentication.GenerateJWT(user)
+	if err != nil {
+		CustomErrors.LogError(5015, CustomErrors.LOG_WARNING, false, err)
+		CustomErrors.ErrorCodeHandler(5015, err, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
+
+	accessCookie := &http.Cookie{
+		Name:     "accessToken",
+		Value:    jwt.AccessToken,
+		MaxAge:   Authentication.JWT_TOKEN_TTL_MIN * 60,
+		HttpOnly: true,
+		Path:     "/",
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	}
+	http.SetCookie(w, accessCookie)
+
+	refreshCookie := &http.Cookie{
+		Name:     "refreshToken",
+		Value:    jwt.RefreshToken,
+		MaxAge:   Authentication.REFRESH_TOKEN_TTL_MIN * 60,
+		HttpOnly: true,
+		Path:     "/auth/refresh",
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
+	}
+	http.SetCookie(w, refreshCookie)
+
+	//Add refresh token to blacklist
+	redisKey = claim.ID.Hex() + ".rt." + strconv.FormatInt(jwt.RefreshExpiry.Unix(), 10)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = vars.redisGlobalClient.Set(ctx, redisKey, jwt.RefreshToken, time.Duration(time.Minute*Authentication.REFRESH_TOKEN_TTL_MIN)).Err()
+	if err != nil {
+		CustomErrors.LogError(5022, CustomErrors.LOG_WARNING, false, err)
+		CustomErrors.ErrorCodeHandler(5022, err, &response)
+		writeStatusMessage(w, &response)
+		return
+	}
 
 	//Return success message
 	writeStatusMessage(w, &response)
@@ -297,7 +350,7 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 
 	claim, gerr := Authentication.VerifyJWT(accessToken)
 	if gerr != nil {
-		CustomErrors.ErrorCodeHandler(gerr, &response)
+		CustomErrors.GenericErrorCodeHandler(gerr, &response)
 		writeStatusMessage(w, &response)
 		return
 	}
@@ -305,7 +358,7 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 	if claim.ID.Hex() == mux.Vars(r)["id"] {
 		user, gerr := Authentication.GetUserUsingIDFromDB(claim.ID.Hex(), vars.dbClient)
 		if gerr != nil {
-			CustomErrors.ErrorCodeHandler(gerr, &response)
+			CustomErrors.GenericErrorCodeHandler(gerr, &response)
 			writeStatusMessage(w, &response)
 			return
 		}
