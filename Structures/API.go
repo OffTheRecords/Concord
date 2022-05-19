@@ -6,9 +6,16 @@ type Response struct {
 }
 
 type LoginResponse struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
+	JwtTTL int64  `json:"jwtttl"`
 }
 
 type RegisterResponse struct {
-	ID string `json:"id"`
+	ID     string `json:"id"`
+	JwtTTL int64  `json:"jwtttl"`
+}
+
+type RefreshResponse struct {
+	ID     string `json:"id"`
+	JwtTTL int64  `json:"jwtttl"`
 }

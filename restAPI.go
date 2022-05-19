@@ -118,7 +118,7 @@ func (vars *WebHandlerVars) loginHandler(w http.ResponseWriter, r *http.Request)
 				http.SetCookie(w, refreshCookie)
 
 				//Json message response
-				loginResponse := Structures.LoginResponse{ID: user.ID.Hex()}
+				loginResponse := Structures.LoginResponse{ID: user.ID.Hex(), JwtTTL: Authentication.JWT_TOKEN_TTL_MIN*60 - 30}
 				loginResponseJson, _ := json.Marshal(loginResponse)
 				response.Msg = string(loginResponseJson)
 			}
@@ -211,7 +211,7 @@ func (vars *WebHandlerVars) registerHandler(w http.ResponseWriter, r *http.Reque
 						http.SetCookie(w, refreshCookie)
 
 						//Json message response
-						registerResponse := Structures.RegisterResponse{ID: user.ID.Hex()}
+						registerResponse := Structures.RegisterResponse{ID: user.ID.Hex(), JwtTTL: Authentication.JWT_TOKEN_TTL_MIN*60 - 30} //Sub 30s to allow for buffer time
 						registerResponseJson, _ := json.Marshal(registerResponse)
 						response.Msg = string(registerResponseJson)
 					}
@@ -328,6 +328,11 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 		writeStatusMessage(w, &response)
 		return
 	}
+
+	//Set response message
+	refreshResponse := Structures.RefreshResponse{ID: user.ID.Hex(), JwtTTL: Authentication.JWT_TOKEN_TTL_MIN*60 - 30} //Sub 30s to allow for buffer time
+	refreshResponseJson, _ := json.Marshal(refreshResponse)
+	response.Msg = string(refreshResponseJson)
 
 	//Return success message
 	writeStatusMessage(w, &response)
