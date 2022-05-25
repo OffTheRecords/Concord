@@ -3,6 +3,7 @@ package main
 import (
 	"Concord/Authentication"
 	"Concord/CustomErrors"
+	"Concord/Messaging"
 	"Concord/Structures"
 	"context"
 	"encoding/json"
@@ -21,16 +22,18 @@ import (
 type WebHandlerVars struct {
 	dbClient          *mongo.Database
 	redisGlobalClient *redis.Client
+	messagingHub      *Messaging.Hub
 }
 
-func startRestAPI(dbClient *mongo.Database, redisGlobalClient *redis.Client) {
-	handlerVars := &WebHandlerVars{dbClient: dbClient, redisGlobalClient: redisGlobalClient}
+func startRestAPI(dbClient *mongo.Database, redisGlobalClient *redis.Client, messagingHub *Messaging.Hub) {
+	handlerVars := &WebHandlerVars{dbClient: dbClient, redisGlobalClient: redisGlobalClient, messagingHub: messagingHub}
 
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/auth/login", handlerVars.loginHandler).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/register", handlerVars.registerHandler).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/refresh", handlerVars.refreshHandler).Methods("GET", "OPTIONS")
 	router.HandleFunc("/user/{id:[0-9a-z]{24}$}", handlerVars.userGetHandler).Methods("GET", "OPTIONS")
+	router.HandleFunc("/chat/ws", handlerVars.chatReceiverHandler).Methods("GET", "OPTIONS")
 
 	//TODO: ALLOW PASSING IN VARIABLE FOR ALLOWED ORIGIN
 	allowedOrigins := handlers.AllowedOrigins([]string{"https://localhost:8080", "https://127.0.0.1:8080"})
@@ -380,6 +383,31 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeStatusMessage(w, &response)
+}
+
+func (vars *WebHandlerVars) chatReceiverHandler(w http.ResponseWriter, r *http.Request) {
+
+	var response Structures.Response
+	response.Status = 200
+	response.Msg = "ok"
+
+	accessToken, gerr := jwtSetCheck(r)
+	if gerr != nil {
+		response.Status = gerr.ErrorCode()
+		response.Msg = gerr.ErrorMsg()
+		Messaging.ClientWSErrorResponse(w, r, response)
+		return
+	}
+
+	claim, gerr := Authentication.VerifyJWT(accessToken)
+	if gerr != nil {
+		CustomErrors.GenericErrorCodeHandler(gerr, &response)
+		Messaging.ClientWSErrorResponse(w, r, response)
+		return
+	}
+
+	Messaging.ClientMessageReceiverHandler(vars.messagingHub, claim.ID.Hex(), w, r)
+
 }
 
 func jwtSetCheck(r *http.Request) (string, CustomErrors.GenericErrors) {

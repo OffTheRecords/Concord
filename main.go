@@ -3,6 +3,7 @@ package main
 import (
 	"Concord/Authentication"
 	"Concord/CustomErrors"
+	"Concord/Messaging"
 	"context"
 	"fmt"
 	"github.com/go-redis/redis/v8"
@@ -74,7 +75,11 @@ func main() {
 	//Create certs for
 	Authentication.CheckAndCreateKeys()
 
+	//Start message hub
+	messageHub := Messaging.NewHub()
+	go messageHub.Run()
+
 	//Start serving client api requests
-	startRestAPI(dbClient, redisGlobalClient)
+	startRestAPI(dbClient, redisGlobalClient, messageHub)
 
 }
