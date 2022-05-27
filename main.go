@@ -79,6 +79,9 @@ func main() {
 	messageHub := Messaging.NewHub()
 	go messageHub.Run()
 
+	//Start RPC server
+	go Messaging.StartRPCServer(messageHub)
+
 	//Start serving client api requests
 	startRestAPI(dbClient, redisGlobalClient, messageHub)
 

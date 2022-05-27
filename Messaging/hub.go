@@ -12,13 +12,17 @@ type Hub struct {
 
 	// Unregister requests from clients.
 	unregister chan *Client
+
+	//Send messages to the user from rpc/local.
+	hubDirectMessageUser chan *DirectMessage
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		register:             make(chan *Client),
+		unregister:           make(chan *Client),
+		clients:              make(map[*Client]bool),
+		hubDirectMessageUser: make(chan *DirectMessage),
 	}
 }
 
@@ -37,15 +41,21 @@ func (h *Hub) Run() {
 				close(client.send)
 			}
 
-			/*case message := <-h.broadcast:
+		//Send user direct message
+		//TODO optimize
+		case sendUserDirectMessage := <-h.hubDirectMessageUser:
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
+				for i := 0; i < len(sendUserDirectMessage.RecipientIDs); i++ {
+					if client.userID == sendUserDirectMessage.RecipientIDs[i] {
+						select {
+						case client.send <- *sendUserDirectMessage:
+						default:
+							close(client.send)
+							delete(h.clients, client)
+						}
+					}
 				}
-			}*/
+			}
 		}
 	}
 }

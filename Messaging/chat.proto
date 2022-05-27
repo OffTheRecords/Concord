@@ -1,0 +1,21 @@
+syntax = "proto3";
+package Messaging;
+option go_package = "./Messaging";
+
+message DirectMessage {
+  string senderID = 1;
+  int64 sentTime = 2;
+  string body = 3;
+  repeated string attachments = 4;
+  repeated string recipientIDs = 5;
+}
+
+message DirectMessageResponse {
+  int32 errorCode = 1;
+  string errorMsg = 2;
+  repeated string successfulDeliveryIDs = 3;
+}
+
+service DirectMessageService {
+  rpc DirectMessageUser(DirectMessage) returns (DirectMessageResponse){}
+}

@@ -39,7 +39,7 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan DirectMessage
 
 	//Client id
 	userID string
@@ -61,7 +61,7 @@ func ClientMessageReceiverHandler(hub *Hub, userID string, w http.ResponseWriter
 	}
 
 	//Register client on hub
-	client := &Client{hub: hub, conn: ws, send: make(chan []byte, 256), userID: userID}
+	client := &Client{hub: hub, conn: ws, send: make(chan DirectMessage, 256), userID: userID}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
