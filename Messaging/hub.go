@@ -48,7 +48,7 @@ func (h *Hub) Run() {
 				for i := 0; i < len(sendUserDirectMessage.RecipientIDs); i++ {
 					if client.userID == sendUserDirectMessage.RecipientIDs[i] {
 						select {
-						case client.send <- *sendUserDirectMessage:
+						case client.send <- sendUserDirectMessage:
 						default:
 							close(client.send)
 							delete(h.clients, client)

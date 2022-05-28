@@ -21,7 +21,7 @@ func TestDirectMessageServer(t *testing.T) {
 		SentTime:     time.Now().Unix(),
 		Body:         "Test message from client",
 		Attachments:  nil,
-		RecipientIDs: nil,
+		RecipientIDs: []string{"62926e7f65a46778d5920e73"},
 	}
 
 	response, err := c.DirectMessageUser(context.Background(), &message)

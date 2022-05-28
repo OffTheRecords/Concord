@@ -44,7 +44,7 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan DirectMessage
+	send chan *DirectMessage
 
 	//Client id
 	userID string
@@ -66,22 +66,17 @@ func ClientMessageReceiverHandler(hub *Hub, userID string, w http.ResponseWriter
 	}
 
 	//Register client on hub
-	client := &Client{hub: hub, conn: ws, send: make(chan DirectMessage, 256), userID: userID}
+	client := &Client{hub: hub, conn: ws, send: make(chan *DirectMessage, 256), userID: userID}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	//go client.writePump()
+	go client.writePump()
 	//go client.readPump()
-
-	//TODO Temp
-	err = ws.Close()
-	if err != nil {
-		return
-	}
 }
 
 func (c *Client) writePump() {
+	//Ticker used to check if client is alive
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -89,11 +84,13 @@ func (c *Client) writePump() {
 	}()
 	for {
 		select {
+		//Process a message from the hub
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				fmt.Println("Web socket closed")
 				return
 			}
 
@@ -101,13 +98,17 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
-			w.Write(message)
+			messageJson, _ := json.Marshal(message)
+			messageBytes := []byte(messageJson)
+			w.Write(messageBytes)
 
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				w.Write(newline)
-				w.Write(<-c.send)
+				messageJson, _ := json.Marshal(<-c.send)
+				messageBytes := []byte(messageJson)
+				w.Write(messageBytes)
 			}
 
 			if err := w.Close(); err != nil {
@@ -116,6 +117,7 @@ func (c *Client) writePump() {
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				fmt.Println("Web socket closed")
 				return
 			}
 		}
