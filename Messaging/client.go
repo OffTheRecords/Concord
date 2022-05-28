@@ -107,8 +107,7 @@ func (c *Client) writePump() {
 				return
 			}
 			messageJson, _ := json.Marshal(message)
-			messageBytes := []byte(messageJson)
-			_, err = w.Write(messageBytes)
+			_, err = w.Write(messageJson)
 			if err != nil {
 				CustomErrors.LogError(5027, CustomErrors.LOG_WARNING, false, err)
 				return
@@ -118,8 +117,7 @@ func (c *Client) writePump() {
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				messageJson, _ = json.Marshal(<-c.send)
-				messageBytes = []byte(messageJson)
-				_, err = w.Write(messageBytes)
+				_, err = w.Write(messageJson)
 				if err != nil {
 					CustomErrors.LogError(5027, CustomErrors.LOG_WARNING, false, err)
 					return
@@ -160,8 +158,7 @@ func ClientWSErrorResponse(w http.ResponseWriter, r *http.Request, response Stru
 
 	//JSON response
 	responseJson, _ := json.Marshal(response)
-
-	err = ws.WriteMessage(1, []byte(responseJson))
+	err = ws.WriteMessage(1, responseJson)
 	if err != nil {
 		// TODO
 		fmt.Println("write:", err)
