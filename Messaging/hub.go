@@ -59,3 +59,16 @@ func (h *Hub) Run() {
 		}
 	}
 }
+
+func (h *Hub) checkUsersExist(userIDs []string) []string {
+	var foundUserIDs []string
+
+	for client := range h.clients {
+		for i := 0; i < len(userIDs); i++ {
+			if client.userID == userIDs[i] {
+				foundUserIDs = append(foundUserIDs, client.userID)
+			}
+		}
+	}
+	return removeDuplicateStringsFromSlice(foundUserIDs)
+}

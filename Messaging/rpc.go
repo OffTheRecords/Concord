@@ -4,7 +4,6 @@ import (
 	"Concord/CustomErrors"
 	"context"
 	"errors"
-	"fmt"
 	"google.golang.org/grpc"
 	"net"
 )
@@ -39,9 +38,12 @@ func StartRPCServer(messageHub *Hub) {
 }
 
 func (server *Server) DirectMessageUser(ctx context.Context, message *DirectMessage) (*DirectMessageResponse, error) {
-	fmt.Println("Got RPC Message")
-
 	server.messageHub.hubDirectMessageUser <- message
 
-	return &DirectMessageResponse{ErrorMsg: "Got response"}, nil
+	matchedUsers := server.messageHub.checkUsersExist(message.RecipientIDs)
+	if len(message.RecipientIDs) == len(matchedUsers) {
+		return &DirectMessageResponse{ErrorCode: 200, ErrorMsg: "ok", SuccessfulDeliveryIDs: matchedUsers}, nil
+	}
+	err := errors.New("not all recipients received the direct message")
+	return &DirectMessageResponse{ErrorCode: 5028, ErrorMsg: err.Error(), SuccessfulDeliveryIDs: matchedUsers}, err
 }
