@@ -71,8 +71,11 @@ func ClientMessageReceiverHandler(hub *Hub, userID string, w http.ResponseWriter
 func (c *Client) writePump() {
 	//Ticker used to check if client is alive
 	ticker := time.NewTicker(pingPeriod)
+
+	//Websocket close cleanup
 	defer func() {
 		ticker.Stop()
+		c.hub.unregister <- c
 		err := c.conn.Close()
 		if err != nil {
 			CustomErrors.LogError(5025, CustomErrors.LOG_WARNING, false, err)
