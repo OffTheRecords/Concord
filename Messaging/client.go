@@ -1,6 +1,7 @@
 package Messaging
 
 import (
+	"Concord/CustomErrors"
 	"Concord/Structures"
 	"encoding/json"
 	"fmt"
@@ -18,14 +19,6 @@ const (
 
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
-
-	// Maximum message size allowed from peer.
-	maxMessageSize = 512
-)
-
-var (
-	newline = []byte{'\n'}
-	space   = []byte{' '}
 )
 
 var upgrader = websocket.Upgrader{
@@ -80,17 +73,28 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		err := c.conn.Close()
+		if err != nil {
+			CustomErrors.LogError(5025, CustomErrors.LOG_WARNING, false, err)
+			return
+		}
 	}()
 	for {
 		select {
 		//Process a message from the hub
 		case message, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			err := c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err != nil {
+				CustomErrors.LogError(5026, CustomErrors.LOG_WARNING, false, err)
+				return
+			}
 			if !ok {
 				// The hub closed the channel.
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				fmt.Println("Web socket closed")
+				err = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				if err != nil {
+					CustomErrors.LogError(5027, CustomErrors.LOG_WARNING, false, err)
+					return
+				}
 				return
 			}
 
@@ -101,24 +105,35 @@ func (c *Client) writePump() {
 			}
 			messageJson, _ := json.Marshal(message)
 			messageBytes := []byte(messageJson)
-			w.Write(messageBytes)
+			_, err = w.Write(messageBytes)
+			if err != nil {
+				CustomErrors.LogError(5027, CustomErrors.LOG_WARNING, false, err)
+				return
+			}
 
 			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
-				w.Write(newline)
-				messageJson, _ := json.Marshal(<-c.send)
-				messageBytes := []byte(messageJson)
-				w.Write(messageBytes)
+				messageJson, _ = json.Marshal(<-c.send)
+				messageBytes = []byte(messageJson)
+				_, err = w.Write(messageBytes)
+				if err != nil {
+					CustomErrors.LogError(5027, CustomErrors.LOG_WARNING, false, err)
+					return
+				}
 			}
 
 			if err := w.Close(); err != nil {
 				return
 			}
+		// Close websocket connection if ping fails
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				fmt.Println("Web socket closed")
+			err := c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err != nil {
+				CustomErrors.LogError(5026, CustomErrors.LOG_WARNING, false, err)
+				return
+			}
+			if err = c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		}
