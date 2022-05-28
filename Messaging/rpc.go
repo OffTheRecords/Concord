@@ -38,6 +38,7 @@ func StartRPCServer(messageHub *Hub) {
 }
 
 func (server *Server) DirectMessageUser(ctx context.Context, message *DirectMessage) (*DirectMessageResponse, error) {
+	message.MsgType = 1
 	server.messageHub.hubDirectMessageUser <- message
 
 	matchedUsers := server.messageHub.checkUsersExist(message.RecipientIDs)
