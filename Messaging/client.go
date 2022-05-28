@@ -94,6 +94,7 @@ func (c *Client) writePump() {
 				return
 			}
 
+			//Serialize message into bytes so it can be written
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
