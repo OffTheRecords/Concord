@@ -321,10 +321,10 @@ func (vars *WebHandlerVars) refreshHandler(w http.ResponseWriter, r *http.Reques
 	http.SetCookie(w, refreshCookie)
 
 	//Add refresh token to blacklist
-	redisKey = claim.ID.Hex() + ".rt." + strconv.FormatInt(jwt.RefreshExpiry.Unix(), 10)
+	redisKey = claim.ID.Hex() + ".rt." + strconv.FormatInt(claim.ExpiresAt, 10)
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err = vars.redisGlobalClient.Set(ctx, redisKey, jwt.RefreshToken, time.Duration(time.Minute*Authentication.REFRESH_TOKEN_TTL_MIN)).Err()
+	err = vars.redisGlobalClient.Set(ctx, redisKey, refreshToken, time.Duration(time.Minute*Authentication.REFRESH_TOKEN_TTL_MIN)).Err()
 	if err != nil {
 		CustomErrors.LogError(5022, CustomErrors.LOG_WARNING, false, err)
 		CustomErrors.ErrorCodeHandler(5022, err, &response)
