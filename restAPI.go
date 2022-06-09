@@ -372,6 +372,7 @@ func (vars *WebHandlerVars) userGetHandler(w http.ResponseWriter, r *http.Reques
 		}
 
 		//Json message response
+		//TODO INCLUDE USER DETAILED INFO SUCH AS DIRECT MESSAGE STATE, FRIENDSLIST AND USER STATUSES, SERVER-LIST,
 		userGetResponse := Structures.Users{ID: user.ID, Username: user.Username, Discriminator: user.Discriminator, Avatar: user.Avatar, Bot: user.Bot, System: user.System, MFA: user.MFA, Banner: user.Banner, Accent_Color: user.Accent_Color, Locale: user.Locale, Email: user.Email, EmailVerified: user.EmailVerified, Role: user.Role, RegisterTime: user.RegisterTime}
 		userGetResponseJson, _ := json.Marshal(userGetResponse)
 		response.Msg = string(userGetResponseJson)
